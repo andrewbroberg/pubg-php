@@ -17,7 +17,7 @@ class API
     /**
      * Create a new API Instance
      */
-    public function __construct($apiKey, $defaultShard)
+    public function __construct($apiKey)
     {
         $this->client = new Client([
             'base_uri' => self::BASEURI,
@@ -26,8 +26,6 @@ class API
                 'Accept' => 'application/vnd.api+json'
             ]
         ]);
-
-        $this->setShard($defaultShard);
     }
 
     private function request($shard, $endpoint, $filters = [])
