@@ -43,10 +43,6 @@ class API
 
         $statusCode = $response->getStatusCode();
 
-        if ($statusCode == 200) {
-            return $response;
-        }
-
         if ($statusCode == 404) {
             throw new ResourceNotFoundException();
         }
@@ -66,6 +62,8 @@ class API
         if ($statusCode == 401) {
             throw new InvalidAPIKeyException();
         }
+
+        return $response;
     }
 
     /**
