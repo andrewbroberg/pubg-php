@@ -49,9 +49,9 @@ class API
 
         if ($statusCode == 429) {
             throw new TooManyRequestsException(
-                $response->getHeader('x-ratelimit-limit'),
-                $response->getHeader('x-ratelimit-remaining'),
-                $response->getHeader('x-ratelimit-reset')
+                $response->getHeaderLine('x-ratelimit-limit'),
+                $response->getHeaderLine('x-ratelimit-remaining'),
+                $response->getHeaderLine('x-ratelimit-reset')
             );
         }
 
