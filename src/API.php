@@ -2,8 +2,9 @@
 
 namespace AndrewBroberg\PUBG;
 
+use Exception;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ClientException;
+use phpDocumentor\Reflection\DocBlock\Tags\Param;
 use WoohooLabs\Yang\JsonApi\Response\JsonApiResponse;
 use WoohooLabs\Yang\JsonApi\Hydrator\ClassHydrator;
 
@@ -11,11 +12,13 @@ class API
 {
     private $client;
     private $shard;
-    private $apiKey;
 
     const BASEURI = 'https://api.playbattlegrounds.com/shards/';
+    private $apiKey;
+
     /**
      * Create a new API Instance
+     * @param $apiKey
      */
     public function __construct($apiKey)
     {
@@ -28,28 +31,91 @@ class API
         ]);
     }
 
-    private function request($shard, $endpoint, $filters = [])
+    /**
+     * @param $shard
+     * @param $endpoint
+     * @return \Psr\Http\Message\ResponseInterface
+     * @throws Exception
+     */
+    private function request($shard, $endpoint)
     {
         $response = $this->client->get("$shard/$endpoint", ['http_errors' => false]);
-        if ($response->getStatusCode() !== 200) {
-            throw new \Exception($response->getReasonPhrase());
+
+        $statusCode = $response->getStatusCode();
+
+        if ($statusCode == 200) {
+            return $response;
         }
 
-        return $response;
+        if ($statusCode == 404) {
+            throw new ResourceNotFoundException();
+        }
+
+        if ($statusCode == 429) {
+            throw new TooManyRequestsException(
+                $response->getHeader('x-ratelimit-limit'),
+                $response->getHeader('x-ratelimit-remaining'),
+                $response->getHeader('x-ratelimit-reset')
+            );
+        }
+
+        if ($statusCode == 415) {
+            throw new InvalidContentTypeException();
+        }
+
+        if ($statusCode == 401) {
+            throw new InvalidAPIKeyException();
+        }
     }
 
+    /**
+     * @param $telemetryUrl
+     * @return mixed
+     * @throws Exception
+     */
+    public function getTelemetry($telemetryUrl)
+    {
+
+        $response = $this->client->get($telemetryUrl);
+
+        if ($response->getStatusCode() !== 200) {
+            throw new Exception($response->getReasonPhrase());
+        }
+
+        return json_decode($response->getBody()->getContents());
+
+    }
+
+    /**
+     * @param $shard
+     * @param $matchId
+     * @return array|\stdClass
+     * @throws Exception
+     */
     public function getMatch($shard, $matchId)
     {
         $response = $this->request($shard, "matches/$matchId");
         return $this->processMatchResponse($response);
     }
 
+    /**
+     * @param $shard
+     * @param $playerId
+     * @return array|\stdClass
+     * @throws Exception
+     */
     public function getPlayer($shard, $playerId)
     {
         $response = $this->request($shard, "players/$playerId");
         return $this->processPlayerResponse($response);
     }
 
+    /**
+     * @param $shard
+     * @param array $filters
+     * @return array|\stdClass
+     * @throws Exception
+     */
     public function getPlayers($shard, array $filters)
     {
         $filters = $this->buildFilters($filters);
@@ -74,11 +140,18 @@ class API
         return http_build_query(['filter' => $filters]);
     }
 
+    /**
+     * @param $shard
+     */
     public function setShard($shard)
     {
         $this->shard = $shard;
     }
 
+    /**
+     * @param $response
+     * @return array|\stdClass
+     */
     private function processPlayerResponse($response)
     {
         $response = new JsonApiResponse($response);
@@ -94,6 +167,10 @@ class API
         return $player;
     }
 
+    /**
+     * @param $response
+     * @return array|\stdClass
+     */
     private function processPlayersResponse($response)
     {
         $response = new JsonApiResponse($response);
@@ -115,34 +192,15 @@ class API
         return $players;
     }
 
+    /**
+     * @param $matchResponse
+     * @return array|\stdClass
+     */
     private function processMatchResponse($matchResponse)
     {
         $response = new JsonApiResponse($matchResponse);
         $hydrator = new ClassHydrator();
         $match = $hydrator->hydrate($response->document());
         return $match;
-
-        $document = $response->document();
-
-        $match = $document->primaryResource();
-        $aMatch = new Match($match->idAndAttributes());
-
-        if ($match->hasRelationship('rosters')) {
-            $rosters = [];
-            foreach ($match->relationship('rosters')->resources() as $resource) {
-                $roster = new Roster($resource->idAndAttributes());
-                if ($resource->hasRelationship('participants')) {
-                    $roster->participants = [];
-                    foreach ($resource->relationship('participants')->resources() as $resource) {
-                        $roster->participants[] = new Participant($resource->idAndAttributes());
-                    }
-                }
-                $rosters[] = $roster;
-            }
-
-            $aMatch->rosters = $rosters;
-        }
-
-        return $aMatch;
     }
 }

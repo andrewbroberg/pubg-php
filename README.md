@@ -33,7 +33,7 @@ $ composer require andrewbroberg/pubg-php
 ## Usage
 
 ``` php
-$api = new AndrewBroberg\PUBG\API();
+$api = new AndrewBroberg\PUBG\API($apiKey);
 $api->getMatch('pc-oc', 'matchid');
 $api->getPlayer('pc-oc', 'playerid');
 $api->getPlayers('pc-oc', ['playerIds' => [
