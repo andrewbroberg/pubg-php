@@ -73,7 +73,6 @@ class API
      */
     public function getTelemetry($telemetryUrl)
     {
-
         $response = $this->client->get($telemetryUrl);
 
         if ($response->getStatusCode() !== 200) {
@@ -106,6 +105,63 @@ class API
     {
         $response = $this->request($shard, "players/$playerId");
         return $this->processPlayerResponse($response);
+    }
+
+    public function getPlayerSeason($shard, $playerId, $season)
+    {
+        $response = $this->request($shard, "players/$playerId/seasons/$season");
+        $response = new JsonApiResponse($response);
+        $hydrator = new ClassHydrator();
+        $playerSeason = $hydrator->hydrate($response->document());
+
+        $matches = $response->document()->primaryResource()->relationship('matchesSolo')->toArray();
+        $playerSeason->matches['solo'] = [];
+        foreach ($matches['data'] as $match) {
+            $playerSeason->matches['solo'][] = $match['id'];
+        }
+
+        $matches = $response->document()->primaryResource()->relationship('matchesSoloFPP')->toArray();
+        $playerSeason->matches['solo-fpp'] = [];
+        foreach ($matches['data'] as $match) {
+            $playerSeason->matches['solo-fpp'][] = $match['id'];
+        }
+
+        $matches = $response->document()->primaryResource()->relationship('matchesDuo')->toArray();
+        $playerSeason->matches['duo'] = [];
+        foreach ($matches['data'] as $match) {
+            $playerSeason->matches['duo'][] = $match['id'];
+        }
+
+        $matches = $response->document()->primaryResource()->relationship('matchesDuoFPP')->toArray();
+        $playerSeason->matches['duo-fpp'] = [];
+        foreach ($matches['data'] as $match) {
+            $playerSeason->matches['duo-fpp'][] = $match['id'];
+        }
+
+        $matches = $response->document()->primaryResource()->relationship('matchesSquad')->toArray();
+        $playerSeason->matches['squad'] = [];
+        foreach ($matches['data'] as $match) {
+            $playerSeason->matches['squad'][] = $match['id'];
+        }
+
+        $matches = $response->document()->primaryResource()->relationship('matchesSquadFPP')->toArray();
+        $playerSeason->matches['squad-fpp'] = [];
+        foreach ($matches['data'] as $match) {
+            $playerSeason->matches['squad-fpp'][] = $match['id'];
+        }
+
+        return $playerSeason;
+    }
+
+    public function getSeasons($shard)
+    {
+        $response = $this->request($shard, "seasons");
+
+        $response = new JsonApiResponse($response);
+        $hydrator = new ClassHydrator();
+        $seasons = $hydrator->hydrate($response->document());
+
+        return $seasons;
     }
 
     /**
